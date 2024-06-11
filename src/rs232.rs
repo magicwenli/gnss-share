@@ -23,7 +23,6 @@
 
 use config::Config;
 use gps::GPS;
-use libudev;
 use serial;
 use std::io;
 use std::io::BufRead;
@@ -40,7 +39,10 @@ impl RS232 {
     pub fn new(config: Rc<Config>) -> io::Result<Self> {
         match config.dev_path {
             Some(ref path) => RS232::new_for_path(path.as_path(), &config),
-            None => RS232::new_detect(&config),
+            None => Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                "No device path specified",
+            )),
         }
     }
 
@@ -70,43 +72,7 @@ impl RS232 {
         Ok(())
     }
 
-    fn new_detect(config: &Config) -> io::Result<Self> {
-        println!("Attempting to autodetect GPS device...");
-        let context = libudev::Context::new()?;
-        let mut enumerator = libudev::Enumerator::new(&context)?;
-        enumerator.match_subsystem("tty")?;
-        enumerator.match_property("ID_BUS", "usb")?;
-        let devices = enumerator.scan_devices()?;
-        for d in devices {
-            if let Some(driver) = d.parent().as_ref().and_then(|p| p.driver()) {
-                if driver != "pl2303" && driver != "cdc_acm" {
-                    continue;
-                }
-            }
-
-            if let Some(p) = d.devnode().and_then(|devnode| devnode.to_str()) {
-                let path = Path::new(p);
-
-                match RS232::new_for_path(&path, config) {
-                    Ok(mut gps) => {
-                        if gps.verify() {
-                            println!("Detected {} as a GPS device", p);
-
-                            return Ok(gps);
-                        }
-                    }
-
-                    Err(e) => println!("Error openning {}: {}", p, e),
-                }
-            }
-        }
-
-        Err(io::Error::new(
-            io::ErrorKind::NotFound,
-            "Failed to autodetect GPS device",
-        ))
-    }
-
+    #[allow(dead_code)]
     fn verify(&mut self) -> bool {
         let mut buffer = String::new();
 

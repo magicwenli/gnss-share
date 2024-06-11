@@ -29,7 +29,6 @@ use std::ptr;
 
 pub struct Config {
     pub dev_path: Option<::std::path::PathBuf>,
-    pub announce_on_net: bool,
     pub port: u16,
     pub net_iface: Option<String>,
     pub no_tcp: bool,

@@ -21,30 +21,24 @@
  * Author: Zeeshan Ali <zeeshanak@gnome.org>
  */
 
-mod avahi;
 mod client_handler;
 mod cmdline_config;
 mod config;
 mod gps;
 mod rs232;
-mod gnss;
 mod server;
 mod stdin_gps;
 
 extern crate serial;
 
-extern crate core;
 extern crate clap;
+extern crate core;
 extern crate libc;
-extern crate libudev;
 extern crate signal_hook;
-extern crate zbus;
-extern crate zvariant;
 
 use config::Config;
 use gps::GPS;
 use rs232::RS232;
-use gnss::GNSS;
 use server::Server;
 use signal_hook as signals;
 use std::io;
@@ -53,7 +47,6 @@ use std::thread;
 use stdin_gps::StdinGPS;
 
 use std::rc::Rc;
-
 
 enum DoneReason {
     Signal(i32),
@@ -73,7 +66,6 @@ fn notify(signals: &[i32], s: mpsc::Sender<DoneReason>) -> Result<(), io::Error>
     Ok(())
 }
 
-
 fn main() {
     let config = cmdline_config::config_from_cmdline();
 
@@ -85,17 +77,17 @@ fn main() {
     match rdone.recv().unwrap() {
         DoneReason::Signal(signals::SIGINT) => {
             println!("Interrupt from keyboard. Exitting..");
-        },
+        }
 
         DoneReason::Signal(signals::SIGTERM) => {
             println!("Kill signal received. Exitting..");
-        },
+        }
 
         DoneReason::Signal(_) => (),
 
         DoneReason::Success => {
             println!("Program completed normally.");
-        },
+        }
     };
 }
 
@@ -118,25 +110,12 @@ fn get_gps(config: Rc<Config>) -> Box<dyn GPS> {
     match RS232::new(config.clone()) {
         Ok(rs232) => return Box::new(rs232),
 
-        Err(e) => {
-            match e.kind() {
-                ::std::io::ErrorKind::NotFound => match GNSS::new(config.clone()) {
-                    Ok(gnss) => return Box::new(gnss),
-
-                    Err(e) => {
-                        match e.kind() {
-                            ::std::io::ErrorKind::NotFound => println!("{}", e),
-
-                            _ => println!("Failed to open GNSS device: {}", e),
-                        }
-
-                        std::process::exit(1);
-                    }
-                },
-
-                _ => {println!("Failed to open serial device: {}", e); std::process::exit(1)},
+        Err(e) => match e.kind() {
+            _ => {
+                println!("Failed to open serial device: {}", e);
+                std::process::exit(1)
             }
-        }
+        },
     }
 }
 

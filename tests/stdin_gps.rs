@@ -45,9 +45,9 @@ fn stdin_gps() {
     test_stdin_gps(Some(9315), Some("lo"), LocalSocket::None);
 
     // Local only.
-    test_stdin_gps(None, None, LocalSocket::Only("/tmp/sock"));
+    test_stdin_gps(None, None, LocalSocket::Only("/tmp/sock888"));
     // Local with defaults.
-    test_stdin_gps(None, None, LocalSocket::Some("/tmp/sock"));
+    test_stdin_gps(None, None, LocalSocket::Some("/tmp/sock888"));
 }
 
 fn test_stdin_gps(tcp_port: Option<u16>, net_iface: Option<&str>, local_socket: LocalSocket) {

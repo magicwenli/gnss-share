@@ -15,9 +15,6 @@ description = "Utility to share your GPS device on local network"
 
 [dependencies]
 serial = "0.3"
-zbus = "1.8"
-zvariant = "2.6"
 signal-hook = "0.1.13"
 clap = "2.23.1"
 libc = "^0.2.21"
-libudev = "0.2.0"

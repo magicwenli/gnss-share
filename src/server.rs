@@ -21,13 +21,12 @@
  * Author: Zeeshan Ali <zeeshanak@gnome.org>
  */
 
-use avahi;
 use client_handler::{ClientHandler, Stream};
 use config::Config;
 use gps;
 use std::io;
-use std::net::{TcpListener};
-use std::os::unix::net::{UnixListener};
+use std::net::TcpListener;
+use std::os::unix::net::UnixListener;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -36,7 +35,6 @@ pub struct Server {
     gps: Arc<Mutex<dyn gps::GPS>>,
     tcp_listener: Option<Arc<Mutex<TcpListener>>>,
     unix_listener: Option<Arc<Mutex<UnixListener>>>,
-    avahi: Option<avahi::Avahi>,
     config: Rc<Config>,
 }
 
@@ -46,7 +44,10 @@ impl Server {
         let tcp_listener = if config.no_tcp {
             None
         } else {
-            Some(Arc::new(Mutex::new(TcpListener::bind((ip.as_str(), config.port))?)))
+            Some(Arc::new(Mutex::new(TcpListener::bind((
+                ip.as_str(),
+                config.port,
+            ))?)))
         };
 
         let path = &config.socket_path;
@@ -55,25 +56,10 @@ impl Server {
             None => None,
         };
 
-        let avahi = if config.announce_on_net {
-            match avahi::Avahi::new() {
-                Ok(avahi) => Some(avahi),
-
-                Err(e) => {
-                    println!("Failed to connect to Avahi: {}", e);
-
-                    None
-                }
-            }
-        } else {
-            None
-        };
-
         Ok(Server {
             gps: Arc::new(Mutex::new(gps)),
             tcp_listener: tcp_listener,
             unix_listener: unix_listener,
-            avahi: avahi,
             config: config,
         })
     }
@@ -109,10 +95,10 @@ impl Server {
                                     handler.handle();
                                 });
                             }
-                        },
+                        }
                         Err(e) => {
                             eprintln!("Local socket failed to accept connection: {}", e);
-                        },
+                        }
                     }
                 }
             })
@@ -130,14 +116,6 @@ impl Server {
                 None => println!("TCP server bound on all interfaces"),
             };
             println!("Port: {}", port);
-
-            if let Some(ref avahi) = self.avahi {
-                let iface = config.net_iface.as_ref().map(|i| i.as_str());
-
-                if let Err(e) = avahi.publish(iface, port) {
-                    eprintln!("Failed to publish service on Avahi: {}", e);
-                };
-            };
 
             let listener = listener.clone();
             let streams_arc = streams_arc.clone();
@@ -164,10 +142,10 @@ impl Server {
                                     handler.handle();
                                 });
                             }
-                        },
+                        }
                         Err(e) => {
                             eprintln!("Connect from client failed: {}", e);
-                        },
+                        }
                     }
                 }
             }))
@@ -176,14 +154,14 @@ impl Server {
         // This method must never exit, so it must block on one of the joins.
         if let Some(thread) = unix_thread {
             match thread.join() {
-                Ok(_) => {},
+                Ok(_) => {}
                 Err(e) => eprintln!("Unix socket thread failed: {:?}", e),
             }
         }
-        
+
         if let Some(thread) = tcp_thread {
             match thread?.join() {
-                Ok(_) => {},
+                Ok(_) => {}
                 Err(e) => eprintln!("TCP socket thread failed: {:?}", e),
             }
         }
