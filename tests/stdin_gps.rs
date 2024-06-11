@@ -76,11 +76,13 @@ fn test_stdin_gps(tcp_port: Option<u16>, net_iface: Option<&str>, local_socket: 
     let mut child = cmd.spawn().expect("Failed to start gps-share");
 
     let nmea_trace = "\
-                      $GPVTG,0.0,T,,M,0.0,N,0.0,K,A*0D\n\
-                      $GPGLL,5744.4784,N,01201.6130,E,122731.00,A,A*66\n\
-                      $GPGSA,A,3,02,12,19,24,,,,,,,,,9.6,6.5,7.1*37\n\
-                      $GPRMC,122732.000,A,5744.4784,N,01201.6130,E,0.0,0.0,300417,,,A*63\n\
-                      $GPGGA,122732.000,5744.4784,N,01201.6130,E,1,04,6.5,61.7,M,44.5,M,,0000*62\n";
+                      $GPVTG,0.0,T,,M,0.0,N,0.0,K,A*0D\r\n\
+                      $GPGLL,5744.4784,N,01201.6130,E,122731.00,A,A*66\r\n\
+                      $GPGSA,A,3,02,12,19,24,,,,,,,,,9.6,6.5,7.1*37\r\n\
+                      $GPRMC,122732.000,A,5744.4784,N,01201.6130,E,0.0,0.0,300417,,,A*63\r\n\
+                      $GPGGA,122732.000,5744.4784,N,01201.6130,E,1,04,6.5,61.7,M,44.5,M,,0000*62\r\n\
+                      abcdefghijklmnopqrstuvwxyz\r\n\
+                      ";
 
     write_nmea_to_child(&mut child, nmea_trace);
 
