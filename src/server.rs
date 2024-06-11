@@ -21,9 +21,9 @@
  * Author: Zeeshan Ali <zeeshanak@gnome.org>
  */
 
-use client_handler::{ClientHandler, Stream};
-use config::Config;
-use gps;
+use crate::client_handler::{ClientHandler, Stream};
+use crate::config::Config;
+use crate::gps;
 use std::io;
 use std::net::TcpListener;
 use std::os::unix::net::UnixListener;

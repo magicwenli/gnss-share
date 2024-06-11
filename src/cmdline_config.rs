@@ -22,7 +22,7 @@
  */
 
 use clap::Parser;
-use config::Config;
+use crate::config::Config;
 
 #[derive(Parser)]
 #[command(name = "gps-share")]

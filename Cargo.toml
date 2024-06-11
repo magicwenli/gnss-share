@@ -12,9 +12,10 @@ license = "GPL-2.0+"
 readme = "README.md"
 repository = "https://github.com/zeenix/gps-share"
 description = "Utility to share your GPS device on local network"
+edition = "2021"
 
 [dependencies]
 serial = "0.3"
-signal-hook = "0.1.13"
 clap = { version = "4.5.7", features = ["derive"] }
-libc = "^0.2.21"
+libc = "0.2.155"
+signal-hook = "0.3.17"

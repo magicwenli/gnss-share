@@ -21,8 +21,8 @@
  * Author: Zeeshan Ali <zeeshanak@gnome.org>
  */
 
-use config::Config;
-use gps::GPS;
+use crate::config::Config;
+use crate::gps::GPS;
 use serial;
 use std::io;
 use std::io::BufRead;
