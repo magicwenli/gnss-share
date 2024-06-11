@@ -99,10 +99,9 @@ fn run(sdone: mpsc::Sender<DoneReason>, config: Rc<Config>) {
 }
 
 fn get_gps(config: Rc<Config>) -> Box<dyn GPS> {
-    if let Some(ref path) = config.dev_path {
-        if path.to_str() == Some("-") {
-            return Box::new(StdinGPS::new());
-        }
+    let ref path = config.dev_path;
+    if path.to_str() == Some("-") {
+        return Box::new(StdinGPS::new());
     }
 
     // FIXME: the discovery part should be separated from the RS232 module so that adding

@@ -21,81 +21,47 @@
  * Author: Zeeshan Ali <zeeshanak@gnome.org>
  */
 
-use clap::{App, Arg};
+use clap::Parser;
 use config::Config;
 
-pub fn config_from_cmdline() -> Config {
-    let matches = App::new("GPS Share")
-        .version(env!("CARGO_PKG_VERSION"))
-        .author("Zeeshan Ali <zeeshanak@gnome.org>")
-        .about("Utility to share your GPS device on local network.")
-        .arg(
-            Arg::with_name("device")
-                .help("GPS device node")
-                .required(false),
-        )
-        .arg(
-            Arg::with_name("disable-announce")
-                .short("a")
-                .long("--disable-announce")
-                .help("Disable announcing through Avahi"),
-        )
-        .arg(
-            Arg::with_name("port")
-                .short("p")
-                .long("--port")
-                .help("Port to run TCP service on (default: 10110)")
-                .takes_value(true)
-                .value_name("PORT"),
-        )
-        .arg(
-            Arg::with_name("interface")
-                .short("n")
-                .long("--network-interface")
-                .help("Bind specific network interface (default: all)")
-                .takes_value(true)
-                .value_name("INTERFACE"),
-        )
-        .arg(
-            Arg::with_name("no-tcp")
-                .short("x")
-                .long("--no-tcp")
-                .help("Don't share over TCP"),
-        )
-        .arg(
-            Arg::with_name("socket")
-                .short("s")
-                .long("--socket-path")
-                .help("Path to place the socket service (default: don't run)")
-                .takes_value(true)
-                .value_name("SOCKET"),
-        )
-        .arg(
-            Arg::with_name("baudrate")
-                .short("b")
-                .long("--baudrate")
-                .help("Baudrate to use for communication with GPS device")
-                .takes_value(true)
-                .value_name("BAUDRATE"),
-        )
-        .get_matches();
+#[derive(Parser)]
+#[command(name = "gps-share")]
+#[command(author = "Zeeshan Ali <zeeshanak@gnome.org>\nMagicwenli <yxnian@outlook.com>")]
+#[command(about = "Utility to share your GNSS device on local network.")]
+pub struct Cli {
+    /// GPS device node
+    pub device: String,
 
-    let dev_path = matches
-        .value_of("device")
-        .and_then(|p| Some(::std::path::PathBuf::from(p)));
-    let port: u16 = matches
-        .value_of("port")
-        .unwrap_or("10110")
-        .parse()
-        .unwrap_or(0);
-    let no_tcp = matches.is_present("no-tcp");
-    let iface = matches.value_of("interface").map(|s| s.to_string());
-    let socket_path = matches.value_of("socket").map(|s| s.to_string());
-    let baudrate = matches
-        .value_of("baudrate")
-        .unwrap_or("38400")
-        .parse()
-        .unwrap_or(38400usize);
+    /// Baudrate to use for communication with GPS device
+    #[arg(short, long, default_value = "115200")]
+    pub baudrate: usize,
+
+    /// Port to run TCP service on
+    #[arg(short, long, default_value = "10110")]
+    pub port: u16,
+
+    /// Bind specific network interface
+    #[arg(short, long)]
+    pub interface: Option<String>,
+
+    /// Don't share over TCP
+    #[arg(short, long, default_value = "false")]
+    pub no_tcp: bool,
+
+    /// Path to place the socket service
+    #[arg(short, long)]
+    pub socket_path: Option<String>,
+}
+
+pub fn config_from_cmdline() -> Config {
+    let matches = Cli::parse();
+
+    let dev_path = ::std::path::PathBuf::from(matches.device);
+    let port = matches.port;
+    let no_tcp = matches.no_tcp;
+    let iface = matches.interface;
+    let socket_path = matches.socket_path;
+    let baudrate = matches.baudrate;
 
     Config {
         dev_path: dev_path,

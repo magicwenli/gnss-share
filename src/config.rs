@@ -28,7 +28,7 @@ use std::mem;
 use std::ptr;
 
 pub struct Config {
-    pub dev_path: Option<::std::path::PathBuf>,
+    pub dev_path: ::std::path::PathBuf,
     pub port: u16,
     pub net_iface: Option<String>,
     pub no_tcp: bool,

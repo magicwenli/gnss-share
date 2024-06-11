@@ -37,13 +37,7 @@ pub struct RS232 {
 
 impl RS232 {
     pub fn new(config: Rc<Config>) -> io::Result<Self> {
-        match config.dev_path {
-            Some(ref path) => RS232::new_for_path(path.as_path(), &config),
-            None => Err(io::Error::new(
-                io::ErrorKind::NotFound,
-                "No device path specified",
-            )),
-        }
+        RS232::new_for_path(config.dev_path.as_path(), &config)
     }
 
     fn new_for_path(path: &Path, config: &Config) -> io::Result<Self> {

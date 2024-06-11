@@ -24,9 +24,8 @@ use std::fs;
 use std::io::Read;
 use std::io::Write;
 use std::net::TcpStream;
-use std::os::unix::net::{UnixStream};
+use std::os::unix::net::UnixStream;
 use std::process::{Child, Command, Stdio};
-
 
 enum LocalSocket {
     Only(&'static str),
@@ -53,24 +52,21 @@ fn stdin_gps() {
 fn test_stdin_gps(tcp_port: Option<u16>, net_iface: Option<&str>, local_socket: LocalSocket) {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_gps-share"));
 
-    cmd.arg("-a")
-        .arg("-")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped());
+    cmd.arg("-").stdin(Stdio::piped()).stdout(Stdio::piped());
     if let Some(port) = tcp_port {
         cmd.args(&["-p", &port.to_string()]);
     }
     if let Some(iface) = net_iface {
-        cmd.args(&["-n", iface]);
+        cmd.args(&["-i", iface]);
     }
     match &local_socket {
         LocalSocket::Only(path) => {
             cmd.args(&["--no-tcp", "--socket-path", path]);
-        },
+        }
         LocalSocket::Some(path) => {
             cmd.args(&["--socket-path", path]);
-        },
-        LocalSocket::None => {},
+        }
+        LocalSocket::None => {}
     }
 
     let mut child = cmd.spawn().expect("Failed to start gps-share");
@@ -107,7 +103,7 @@ fn test_stdin_gps(tcp_port: Option<u16>, net_iface: Option<&str>, local_socket: 
         LocalSocket::Some(path) => Some(path),
         _ => None,
     };
-    
+
     // Read from the local socket
     // if data hasn't already been read from the network.
     if let LocalSocket::Only(path) = local_socket {
