@@ -37,7 +37,7 @@ pub struct RS232 {
 
 impl RS232 {
     pub fn new(config: Rc<Config>) -> io::Result<Self> {
-        RS232::new_for_path(config.dev_path.as_path(), &config)
+        RS232::new_for_path(config.dev_path, &config)
     }
 
     fn new_for_path(path: &Path, config: &Config) -> io::Result<Self> {

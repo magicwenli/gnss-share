@@ -15,7 +15,8 @@ description = "Utility to share your GPS device on local network"
 edition = "2021"
 
 [dependencies]
-serial = "0.3"
 clap = { version = "4.5.7", features = ["derive"] }
 libc = "0.2.155"
 signal-hook = "0.3.17"
+mio = { version = "0.8.11", features = ["net"] }
+mio-serial = "5.0.5"

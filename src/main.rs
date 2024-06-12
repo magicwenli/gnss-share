@@ -21,24 +21,17 @@
  * Author: Zeeshan Ali <zeeshanak@gnome.org>
  */
 
-mod client_handler;
 mod cmdline_config;
 mod config;
-mod gps;
-mod rs232;
 mod server;
-mod stdin_gps;
 
 use config::Config;
-use gps::GPS;
-use rs232::RS232;
 use server::Server;
 use signal_hook;
 use signal_hook::consts as signals;
 use std::io;
 use std::sync::mpsc;
 use std::thread;
-use stdin_gps::StdinGPS;
 
 use std::rc::Rc;
 
@@ -86,42 +79,7 @@ fn main() {
 }
 
 fn run(sdone: mpsc::Sender<DoneReason>, config: Rc<Config>) {
-    let gps = get_gps(config.clone());
-
-    run_server_handle_err(gps, config.clone());
+    let server = Server::new(config.clone()).unwrap();
+    server.run();
     sdone.send(DoneReason::Success).unwrap();
-}
-
-fn get_gps(config: Rc<Config>) -> Box<dyn GPS> {
-    let ref path = config.dev_path;
-    if path.to_str() == Some("-") {
-        return Box::new(StdinGPS::new());
-    }
-
-    // FIXME: the discovery part should be separated from the RS232 module so that adding
-    //  more devices doesn't get even more convoluted.
-    match RS232::new(config.clone()) {
-        Ok(rs232) => return Box::new(rs232),
-
-        Err(e) => match e.kind() {
-            _ => {
-                println!("Failed to open serial device: {}", e);
-                std::process::exit(1)
-            }
-        },
-    }
-}
-
-fn run_server_handle_err(gps: Box<dyn GPS>, config: Rc<Config>) {
-    if let Err(e) = run_server(gps, config) {
-        println!("Failed to start TCP service: {}", e);
-
-        std::process::exit(2);
-    }
-}
-
-fn run_server(gps: Box<dyn GPS>, config: Rc<Config>) -> ::std::io::Result<()> {
-    let mut server = Server::new(gps, config)?;
-
-    server.run()
 }

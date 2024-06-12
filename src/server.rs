@@ -1,173 +1,131 @@
-/* vim: set et ts=4 sw=4: */
-/* server.rs
- *
- * Copyright (C) 2017 Pelagicore AB.
- * Copyright (C) 2017 Zeeshan Ali.
- *
- * GPSShare is free software; you can redistribute it and/or modify it under
- * the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * GPSShare is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
- * details.
- *
- * You should have received a copy of the GNU General Public License along
- * with GPSShare; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
- * Author: Zeeshan Ali <zeeshanak@gnome.org>
- */
-
-use crate::client_handler::{ClientHandler, Stream};
 use crate::config::Config;
-use crate::gps;
-use std::io;
-use std::net::TcpListener;
-use std::os::unix::net::UnixListener;
-use std::rc::Rc;
-use std::sync::{Arc, Mutex};
-use std::thread;
+use mio::{event, net, Events, Interest, Poll, Token};
+use mio_serial::{SerialPortBuilderExt, SerialStream};
+use std::{
+    io::{self, Read, Write},
+    os::fd::AsRawFd,
+    rc::Rc,
+};
+const SERIAL_TOKEN: Token = Token(0);
+const TCP_TOKEN: Token = Token(1);
 
 pub struct Server {
-    gps: Arc<Mutex<dyn gps::GPS>>,
-    tcp_listener: Option<Arc<Mutex<TcpListener>>>,
-    unix_listener: Option<Arc<Mutex<UnixListener>>>,
     config: Rc<Config>,
+    poller: Poll,
+    events: Events,
+    serial_server: SerialStream,
+    tcp_server: net::TcpListener,
+    clients: Vec<net::TcpStream>,
 }
 
 impl Server {
-    pub fn new<T: gps::GPS>(gps: T, config: Rc<Config>) -> io::Result<Self> {
-        let ip = config.get_ip();
-        let tcp_listener = if config.no_tcp {
-            None
-        } else {
-            Some(Arc::new(Mutex::new(TcpListener::bind((
-                ip.as_str(),
-                config.port,
-            ))?)))
-        };
+    pub fn new(config: Rc<Config>) -> io::Result<Self> {
+        let poller = Poll::new()?;
+        let mut events = Events::with_capacity(500);
+        let mut serial_rx = mio_serial::new(&config.dev_path, config.baudrate)
+            .stop_bits(mio_serial::StopBits::One)
+            .parity(mio_serial::Parity::None)
+            .data_bits(mio_serial::DataBits::Eight)
+            .flow_control(mio_serial::FlowControl::None)
+            .open_native_async()?;
+        poller
+            .registry()
+            .register(&mut serial_rx, SERIAL_TOKEN, Interest::READABLE)
+            .unwrap();
 
-        let path = &config.socket_path;
-        let unix_listener = match path {
-            Some(p) => Some(Arc::new(Mutex::new(UnixListener::bind(p)?))),
-            None => None,
-        };
+        let mut tcp_rx = net::TcpListener::bind(std::net::SocketAddr::new(
+            config.get_ip().parse().unwrap(),
+            config.port,
+        ))
+        .expect("unable to bind TCP listener");
+        poller
+            .registry()
+            .register(&mut tcp_rx, TCP_TOKEN, Interest::READABLE)
+            .unwrap();
+
+        let clients = Vec::new();
 
         Ok(Server {
-            gps: Arc::new(Mutex::new(gps)),
-            tcp_listener: tcp_listener,
-            unix_listener: unix_listener,
-            config: config,
+            config,
+            poller,
+            events,
+            clients,
+            serial_server: serial_rx,
+            tcp_server: tcp_rx,
         })
     }
 
-    pub fn run(&mut self) -> io::Result<()> {
-        let config = &self.config;
+    fn add_client(
+        self,
+        poller: &Poll,
+        clients: &mut Vec<net::TcpStream>,
+        mut client: net::TcpStream,
+    ) {
+        let client_fd = client.as_raw_fd() as usize;
+        poller
+            .registry()
+            .register(&mut client, Token(client_fd), Interest::READABLE)
+            .unwrap();
+        clients.push(client);
+    }
 
-        let streams: Vec<Stream> = vec![];
-        let streams_arc = Arc::new(Mutex::new(streams));
+    fn remove_client(
+        self,
+        poller: &Poll,
+        clients: &mut Vec<net::TcpStream>,
+        mut client: net::TcpStream,
+    ) {
+        let client_fd = client.as_raw_fd() as usize;
+        poller.registry().deregister(&mut client).unwrap();
+        clients.retain(|c| c.as_raw_fd() as usize != client_fd);
+        client.shutdown(std::net::Shutdown::Both).unwrap();
+    }
 
-        let unix_thread = self.unix_listener.as_ref().map(|listener| {
-            let listener = listener.clone();
-            let streams_arc = streams_arc.clone();
-            let gps = self.gps.clone();
-            thread::spawn(move || {
-                let listener = listener.lock().unwrap();
-                loop {
-                    match listener.accept() {
-                        Ok((stream, _addr)) => {
-                            let launch_handler;
-                            {
-                                // unwrap cause we don't want a poisoned lock:
-                                // https://doc.rust-lang.org/std/sync/struct.Mutex.html#poisoning
-                                let mut streams = streams_arc.lock().unwrap();
-                                streams.push(Stream::Unix(stream));
-                                launch_handler = streams.len() == 1;
-                            }
+    pub fn run(&mut self) {
+        loop {
+            self.poller.poll(&mut self.events, None).unwrap();
 
-                            if launch_handler {
-                                let handler = ClientHandler::new(gps.clone(), streams_arc.clone());
-
-                                thread::spawn(move || {
-                                    handler.handle();
-                                });
-                            }
+            for event in self.events.iter() {
+                match event.token() {
+                    SERIAL_TOKEN => {
+                        let mut buffer = vec![0; 1024];
+                        let bytes_read = self.serial_server.read(&mut buffer).unwrap();
+                        if bytes_read == 0 {
+                            continue;
                         }
-                        Err(e) => {
-                            eprintln!("Local socket failed to accept connection: {}", e);
+
+                        for client in self.clients.into_iter() {
+                            client.write_all(buffer.as_slice()).unwrap();
+                        }
+                    }
+                    TCP_TOKEN => {
+                        let (client, addr) = self.tcp_server.accept().unwrap();
+                        println!("Accepted connection from: {}", addr);
+                        self.add_client(&self.poller, &mut self.clients, client);
+                    }
+                    _ => {
+                        let client = self
+                            .clients
+                            .into_iter()
+                            .find(|c| c.as_raw_fd() as usize == event.token().0)
+                            .unwrap();
+                        if event.is_error() || event.is_read_closed() || event.is_write_closed() {
+                            self.remove_client(&self.poller, &mut self.clients, client);
+                        } else {
+                            let mut buffer = vec![0; 1024];
+                            let bytes_read = client.read(&mut buffer).unwrap();
+                            if bytes_read == 0 {
+                                self.remove_client(&self.poller, &mut self.clients, client);
+                            } else {
+                                let data = String::from_utf8(buffer).unwrap();
+                                println!("Received data from client: {}", data);
+
+                                self.serial_server.write_all(&buffer).unwrap();
+                            }
                         }
                     }
                 }
-            })
-        });
-
-        let tcp_thread: Option<Result<_, io::Error>> = self.tcp_listener.as_ref().map(|listener| {
-            let addr = {
-                let listener = listener.lock().unwrap();
-                listener.local_addr()
-            }?;
-            let port = addr.port();
-
-            match config.net_iface {
-                Some(ref i) => println!("TCP server bound on {} interface", i),
-                None => println!("TCP server bound on all interfaces"),
-            };
-            println!("Port: {}", port);
-
-            let listener = listener.clone();
-            let streams_arc = streams_arc.clone();
-            let gps = self.gps.clone();
-            Ok(thread::spawn(move || {
-                let listener = listener.lock().unwrap();
-                loop {
-                    match listener.accept() {
-                        Ok((stream, addr)) => {
-                            println!("Connection from {}", addr.ip());
-                            let launch_handler;
-                            {
-                                // unwrap cause we don't want a poisoned lock:
-                                // https://doc.rust-lang.org/std/sync/struct.Mutex.html#poisoning
-                                let mut streams = streams_arc.lock().unwrap();
-                                streams.push(Stream::Tcp(stream));
-                                launch_handler = streams.len() == 1;
-                            }
-
-                            if launch_handler {
-                                let handler = ClientHandler::new(gps.clone(), streams_arc.clone());
-
-                                thread::spawn(move || {
-                                    handler.handle();
-                                });
-                            }
-                        }
-                        Err(e) => {
-                            eprintln!("Connect from client failed: {}", e);
-                        }
-                    }
-                }
-            }))
-        });
-
-        // This method must never exit, so it must block on one of the joins.
-        if let Some(thread) = unix_thread {
-            match thread.join() {
-                Ok(_) => {}
-                Err(e) => eprintln!("Unix socket thread failed: {:?}", e),
             }
         }
-
-        if let Some(thread) = tcp_thread {
-            match thread?.join() {
-                Ok(_) => {}
-                Err(e) => eprintln!("TCP socket thread failed: {:?}", e),
-            }
-        }
-
-        // This can be hit when the TCP socket stops serving (so never),
-        // or when the TCP socket is not even requested.
-        panic!("Sharing ended or not configured");
     }
 }

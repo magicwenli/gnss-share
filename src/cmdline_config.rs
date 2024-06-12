@@ -34,7 +34,7 @@ pub struct Cli {
 
     /// Baudrate to use for communication with GPS device
     #[arg(short, long, default_value = "115200")]
-    pub baudrate: usize,
+    pub baudrate: u32,
 
     /// Port to run TCP service on
     #[arg(short, long, default_value = "10110")]
@@ -56,19 +56,12 @@ pub struct Cli {
 pub fn config_from_cmdline() -> Config {
     let matches = Cli::parse();
 
-    let dev_path = ::std::path::PathBuf::from(matches.device);
-    let port = matches.port;
-    let no_tcp = matches.no_tcp;
-    let iface = matches.interface;
-    let socket_path = matches.socket_path;
-    let baudrate = matches.baudrate;
-
     Config {
-        dev_path: dev_path,
-        port: port,
-        net_iface: iface,
-        no_tcp: no_tcp,
-        socket_path: socket_path,
-        baudrate: baudrate,
+        dev_path: matches.device,
+        port: matches.port,
+        net_iface: matches.interface,
+        no_tcp: matches.no_tcp,
+        socket_path: matches.socket_path,
+        baudrate: matches.baudrate,
     }
 }
