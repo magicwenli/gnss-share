@@ -1,16 +1,17 @@
 [package]
-name = "gps-share"
-version = "0.3.2"
+name = "gnss-share"
+version = "1.3.2"
 authors = [
     "Zeeshan Ali <zeenix@gmail.com>",
     "Dorota Czaplejewicz <dorota.czaplejewicz@puri.sm>",
     "Angus Ainslie <angus@akkea.ca>",
+    "MagicWenli <yxnian@outlook.com>",
 ]
 categories = ["hardware-support", "command-line-utilities", "command-line-interface", "os::unix-apis"]
 keywords = ["serial", "hardware", "system", "RS232", "GPS"]
 license = "GPL-2.0+"
 readme = "README.md"
-repository = "https://github.com/zeenix/gps-share"
+repository = "https://github.com/magicwenli/gnss-share"
 description = "Utility to share your GPS device on local network"
 edition = "2021"
 

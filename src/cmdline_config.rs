@@ -26,7 +26,7 @@ use crate::config::Config;
 use clap::Parser;
 
 #[derive(Parser)]
-#[command(name = "gps-share")]
+#[command(name = "gnss-share")]
 #[command(author = "Zeeshan Ali <zeeshanak@gnome.org>\nMagicwenli <yxnian@outlook.com>")]
 #[command(about = "Utility to share your GNSS device on local network.")]
 #[command(

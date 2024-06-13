@@ -16,14 +16,14 @@ jobs:
           - os_name: Linux-x86_64
             os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            bin: gps-share
-            name: gps-share-linux-x86_64-gnu.tar.gz
+            bin: gnss-share
+            name: gnss-share-linux-x86_64-gnu.tar.gz
 
           - os_name: Linux-aarch64
             os: ubuntu-22.04
             target: aarch64-unknown-linux-gnu
-            bin: gps-share
-            name: gps-share-linux-aarch64-gnu.tar.gz
+            bin: gnss-share
+            name: gnss-share-linux-aarch64-gnu.tar.gz
  
     steps:
       - name: Checkout
@@ -62,4 +62,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           draft: true
-          files: "gps-share*"
+          files: "gnss-share*"
