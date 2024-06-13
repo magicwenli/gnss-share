@@ -22,15 +22,16 @@
  * Author: Zeeshan Ali <zeeshanak@gnome.org>
  */
 
+use daemonize::Daemonize;
 use gnss_share::cmdline_config;
 use gnss_share::config::Config;
 use gnss_share::server::Server;
 use signal_hook;
 use signal_hook::consts as signals;
 use std::io;
+use std::rc::Rc;
 use std::sync::mpsc;
 use std::thread;
-use std::rc::Rc;
 
 enum DoneReason {
     Signal(i32),
@@ -53,6 +54,14 @@ fn notify(signals: &[i32], s: mpsc::Sender<DoneReason>) -> Result<(), io::Error>
 fn main() {
     env_logger::init();
     let config = cmdline_config::config_from_cmdline();
+
+    if config.daemonize {
+        let daemonize = Daemonize::new();
+        match daemonize.start() {
+            Ok(_) => println!("Daemonized!"),
+            Err(e) => eprintln!("Error, {}", e),
+        }
+    }
 
     let (sdone, rdone) = mpsc::channel();
     notify(&[signals::SIGINT, signals::SIGTERM], sdone.clone()).unwrap();

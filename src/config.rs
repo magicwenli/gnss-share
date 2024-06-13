@@ -34,6 +34,7 @@ pub struct Config {
     pub no_tcp: bool,
     pub socket_path: Option<String>,
     pub baudrate: u32,
+    pub daemonize: bool,
 }
 
 impl Config {

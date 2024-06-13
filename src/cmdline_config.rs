@@ -41,21 +41,25 @@ pub struct Cli {
     #[arg(short, long, default_value = "115200")]
     pub baudrate: u32,
 
-    /// Bind specific network interface. If not set, the service will listen on all interfaces.
+    /// TCP service IP or net iface. Default is binding all iface.
     #[arg(short, long)]
     pub interface: Option<String>,
 
-    /// Port to run TCP service on
+    /// TCP service port.
     #[arg(short, long, default_value = "10110")]
     pub port: u16,
 
-    /// Don't share over TCP.
+    /// Disable TCP service.
     #[arg(short, long, action=ArgAction::SetTrue)]
     pub no_tcp: bool,
 
-    /// Path to place the unix socket service. If not set, the unix socket will not be started
+    /// Unix socket service path. Default is disable.
     #[arg(short, long)]
     pub socket_path: Option<String>,
+
+    /// Daemonize the process
+    #[arg(short, long, action=ArgAction::SetTrue)]
+    pub daemonize: bool,
 }
 
 pub fn config_from_cmdline() -> Config {
@@ -68,5 +72,6 @@ pub fn config_from_cmdline() -> Config {
         no_tcp: matches.no_tcp,
         socket_path: matches.socket_path,
         baudrate: matches.baudrate,
+        daemonize: matches.daemonize,
     }
 }
