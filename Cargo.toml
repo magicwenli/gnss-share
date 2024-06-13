@@ -1,4 +1,5 @@
 [package]
+edition = "2021"
 name = "gnss-share"
 version = "1.3.3"
 authors = [
@@ -13,7 +14,9 @@ license = "GPL-2.0+"
 readme = "README.md"
 repository = "https://github.com/magicwenli/gnss-share"
 description = "Utility to share your GPS device on local network"
-edition = "2021"
+
+[profile.release]
+strip = true
 
 [dependencies]
 clap = { version = "4.5.7", features = ["derive"] }
