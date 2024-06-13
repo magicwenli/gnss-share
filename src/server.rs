@@ -140,7 +140,7 @@ impl Server {
                         }
 
                         for client in clients.iter_mut() {
-                            client.write_all(buffer.as_slice()).unwrap();
+                            client.write_all(&buffer[..bytes_read]).unwrap();
                         }
                     }
                     TCP_TOKEN => match tcp_server {
