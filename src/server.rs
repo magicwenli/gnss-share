@@ -147,13 +147,19 @@ impl Server {
                 match event.token() {
                     SERIAL_TOKEN => {
                         let mut buffer = vec![0; 1024];
-                        let bytes_read = serial_server.read(&mut buffer).unwrap();
+                        let bytes_read = match serial_server.read(&mut buffer) {
+                            Ok(bytes_read) => bytes_read,
+                            Err(e) => {
+                                eprintln!("Error reading from serial port: {}", e);
+                                0
+                            }
+                        };
                         if bytes_read == 0 {
                             continue;
                         }
 
                         for client in clients.iter_mut() {
-                            client.write_all(buffer.as_slice()).unwrap();
+                            client.write_all(&buffer[..bytes_read]).unwrap();
                         }
                     }
                     TCP_TOKEN => match tcp_server {
