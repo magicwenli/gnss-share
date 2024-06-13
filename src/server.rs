@@ -1,6 +1,30 @@
+/* vim: set et ts=4 sw=4: */
+/* main.rs
+ *
+ * Copyright (C) 2024 Magicwenli.
+ * Copyright (C) 2017 Pelagicore AB.
+ * Copyright (C) 2017 Zeeshan Ali.
+ *
+ * GPSShare is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free
+ * Software Foundation; either version 2 of the License, or (at your option)
+ * any later version.
+ *
+ * GPSShare is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with GPSShare; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ *
+ * Author: Zeeshan Ali <zeeshanak@gnome.org>
+ */
+
 use crate::config::Config;
-use mio::{event, net, Events, Interest, Poll, Token};
-use mio_serial::{SerialPortBuilderExt, SerialStream};
+use mio::{net, Events, Interest, Poll, Token};
+use mio_serial::SerialPortBuilderExt;
 use std::{
     io::{self, Read, Write},
     os::fd::AsRawFd,
@@ -11,52 +35,15 @@ const TCP_TOKEN: Token = Token(1);
 
 pub struct Server {
     config: Rc<Config>,
-    poller: Poll,
-    events: Events,
-    serial_server: SerialStream,
-    tcp_server: net::TcpListener,
-    clients: Vec<net::TcpStream>,
 }
 
 impl Server {
     pub fn new(config: Rc<Config>) -> io::Result<Self> {
-        let poller = Poll::new()?;
-        let mut events = Events::with_capacity(500);
-        let mut serial_rx = mio_serial::new(&config.dev_path, config.baudrate)
-            .stop_bits(mio_serial::StopBits::One)
-            .parity(mio_serial::Parity::None)
-            .data_bits(mio_serial::DataBits::Eight)
-            .flow_control(mio_serial::FlowControl::None)
-            .open_native_async()?;
-        poller
-            .registry()
-            .register(&mut serial_rx, SERIAL_TOKEN, Interest::READABLE)
-            .unwrap();
-
-        let mut tcp_rx = net::TcpListener::bind(std::net::SocketAddr::new(
-            config.get_ip().parse().unwrap(),
-            config.port,
-        ))
-        .expect("unable to bind TCP listener");
-        poller
-            .registry()
-            .register(&mut tcp_rx, TCP_TOKEN, Interest::READABLE)
-            .unwrap();
-
-        let clients = Vec::new();
-
-        Ok(Server {
-            config,
-            poller,
-            events,
-            clients,
-            serial_server: serial_rx,
-            tcp_server: tcp_rx,
-        })
+        Ok(Server { config })
     }
 
     fn add_client(
-        self,
+        &self,
         poller: &Poll,
         clients: &mut Vec<net::TcpStream>,
         mut client: net::TcpStream,
@@ -69,58 +56,77 @@ impl Server {
         clients.push(client);
     }
 
-    fn remove_client(
-        self,
-        poller: &Poll,
-        clients: &mut Vec<net::TcpStream>,
-        mut client: net::TcpStream,
-    ) {
-        let client_fd = client.as_raw_fd() as usize;
+    fn remove_client(&self, poller: &Poll, clients: &mut Vec<net::TcpStream>, client_fd: usize) {
+        let client_index = clients
+            .iter()
+            .position(|c| c.as_raw_fd() as usize == client_fd)
+            .unwrap();
+        let mut client = clients.swap_remove(client_index);
         poller.registry().deregister(&mut client).unwrap();
-        clients.retain(|c| c.as_raw_fd() as usize != client_fd);
-        client.shutdown(std::net::Shutdown::Both).unwrap();
     }
 
     pub fn run(&mut self) {
-        loop {
-            self.poller.poll(&mut self.events, None).unwrap();
+        let mut poller = Poll::new().expect("unable to create poller");
+        let mut events = Events::with_capacity(500);
+        let mut clients: Vec<net::TcpStream> = Vec::new();
+        let mut serial_server = mio_serial::new(self.config.dev_path.clone(), self.config.baudrate)
+            .stop_bits(mio_serial::StopBits::One)
+            .parity(mio_serial::Parity::None)
+            .data_bits(mio_serial::DataBits::Eight)
+            .flow_control(mio_serial::FlowControl::None)
+            .open_native_async()
+            .expect("unable to open serial port");
+        let mut tcp_server = net::TcpListener::bind(std::net::SocketAddr::new(
+            self.config.get_ip().parse().unwrap(),
+            self.config.port,
+        ))
+        .expect("unable to bind TCP listener");
+        poller
+            .registry()
+            .register(&mut serial_server, SERIAL_TOKEN, Interest::READABLE)
+            .unwrap();
 
-            for event in self.events.iter() {
+        poller
+            .registry()
+            .register(&mut tcp_server, TCP_TOKEN, Interest::READABLE)
+            .unwrap();
+
+        loop {
+            poller.poll(&mut events, None).unwrap();
+
+            for event in events.iter() {
                 match event.token() {
                     SERIAL_TOKEN => {
                         let mut buffer = vec![0; 1024];
-                        let bytes_read = self.serial_server.read(&mut buffer).unwrap();
+                        let bytes_read = serial_server.read(&mut buffer).unwrap();
                         if bytes_read == 0 {
                             continue;
                         }
 
-                        for client in self.clients.into_iter() {
+                        for mut client in clients.iter() {
                             client.write_all(buffer.as_slice()).unwrap();
                         }
                     }
                     TCP_TOKEN => {
-                        let (client, addr) = self.tcp_server.accept().unwrap();
+                        let (client, addr) = tcp_server.accept().unwrap();
                         println!("Accepted connection from: {}", addr);
-                        self.add_client(&self.poller, &mut self.clients, client);
+                        self.add_client(&poller, &mut clients, client);
                     }
                     _ => {
-                        let client = self
-                            .clients
-                            .into_iter()
-                            .find(|c| c.as_raw_fd() as usize == event.token().0)
-                            .unwrap();
+                        let client_fd = event.token().0;
                         if event.is_error() || event.is_read_closed() || event.is_write_closed() {
-                            self.remove_client(&self.poller, &mut self.clients, client);
+                            self.remove_client(&poller, &mut clients, client_fd);
                         } else {
+                            let client = clients
+                                .iter_mut()
+                                .find(|c| c.as_raw_fd() as usize == client_fd)
+                                .unwrap();
                             let mut buffer = vec![0; 1024];
                             let bytes_read = client.read(&mut buffer).unwrap();
                             if bytes_read == 0 {
-                                self.remove_client(&self.poller, &mut self.clients, client);
+                                self.remove_client(&poller, &mut clients, client_fd);
                             } else {
-                                let data = String::from_utf8(buffer).unwrap();
-                                println!("Received data from client: {}", data);
-
-                                self.serial_server.write_all(&buffer).unwrap();
+                                serial_server.write_all(&buffer).unwrap();
                             }
                         }
                     }

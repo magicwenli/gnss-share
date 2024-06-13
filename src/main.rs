@@ -1,6 +1,7 @@
 /* vim: set et ts=4 sw=4: */
 /* main.rs
  *
+ * Copyright (C) 2024 Magicwenli.
  * Copyright (C) 2017 Pelagicore AB.
  * Copyright (C) 2017 Zeeshan Ali.
  *
@@ -79,7 +80,7 @@ fn main() {
 }
 
 fn run(sdone: mpsc::Sender<DoneReason>, config: Rc<Config>) {
-    let server = Server::new(config.clone()).unwrap();
+    let mut server = Server::new(config.clone()).unwrap();
     server.run();
     sdone.send(DoneReason::Success).unwrap();
 }

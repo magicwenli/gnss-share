@@ -1,6 +1,7 @@
 /* vim: set et ts=4 sw=4: */
 /* cmdline_config.rs
  *
+ * Copyright (C) 2024 Magicwenli.
  * Copyright (C) 2017 Pelagicore AB.
  * Copyright (C) 2017 Zeeshan Ali.
  *
@@ -21,13 +22,16 @@
  * Author: Zeeshan Ali <zeeshanak@gnome.org>
  */
 
-use clap::Parser;
 use crate::config::Config;
+use clap::Parser;
 
 #[derive(Parser)]
 #[command(name = "gps-share")]
 #[command(author = "Zeeshan Ali <zeeshanak@gnome.org>\nMagicwenli <yxnian@outlook.com>")]
 #[command(about = "Utility to share your GNSS device on local network.")]
+#[command(
+    long_about = "This utility can boardcast GNSS data from a serial device to a TCP/Unix socket. And it can also receive GNSS data from TCP/Unix socket and send it back to a serial device."
+)]
 pub struct Cli {
     /// GPS device node
     pub device: String,

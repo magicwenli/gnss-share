@@ -1,6 +1,7 @@
 /* vim: set et ts=4 sw=4: */
 /* config.rs
  *
+ * Copyright (C) 2024 Magicwenli.
  * Copyright (C) 2017 Pelagicore AB.
  * Copyright (C) 2017 Zeeshan Ali.
  *
