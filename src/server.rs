@@ -23,6 +23,7 @@
  */
 
 use crate::config::Config;
+use crate::stream::Stream;
 use mio::{net, Events, Interest, Poll, Token};
 use mio_serial::SerialPortBuilderExt;
 use std::{
@@ -32,6 +33,7 @@ use std::{
 };
 const SERIAL_TOKEN: Token = Token(0);
 const TCP_TOKEN: Token = Token(1);
+const UNIX_TOKEN: Token = Token(2);
 
 pub struct Server {
     config: Rc<Config>,
@@ -42,12 +44,7 @@ impl Server {
         Ok(Server { config })
     }
 
-    fn add_client(
-        &self,
-        poller: &Poll,
-        clients: &mut Vec<net::TcpStream>,
-        mut client: net::TcpStream,
-    ) {
+    fn add_client(&self, poller: &Poll, clients: &mut Vec<Stream>, mut client: Stream) {
         let client_fd = client.as_raw_fd() as usize;
         poller
             .registry()
@@ -56,7 +53,7 @@ impl Server {
         clients.push(client);
     }
 
-    fn remove_client(&self, poller: &Poll, clients: &mut Vec<net::TcpStream>, client_fd: usize) {
+    fn remove_client(&self, poller: &Poll, clients: &mut Vec<Stream>, client_fd: usize) {
         let client_index = clients
             .iter()
             .position(|c| c.as_raw_fd() as usize == client_fd)
@@ -68,7 +65,7 @@ impl Server {
     pub fn run(&mut self) {
         let mut poller = Poll::new().expect("unable to create poller");
         let mut events = Events::with_capacity(500);
-        let mut clients: Vec<net::TcpStream> = Vec::new();
+        let mut clients: Vec<Stream> = Vec::new();
         let mut serial_server = mio_serial::new(self.config.dev_path.clone(), self.config.baudrate)
             .stop_bits(mio_serial::StopBits::One)
             .parity(mio_serial::Parity::None)
@@ -76,20 +73,38 @@ impl Server {
             .flow_control(mio_serial::FlowControl::None)
             .open_native_async()
             .expect("unable to open serial port");
-        let mut tcp_server = net::TcpListener::bind(std::net::SocketAddr::new(
-            self.config.get_ip().parse().unwrap(),
-            self.config.port,
-        ))
-        .expect("unable to bind TCP listener");
         poller
             .registry()
             .register(&mut serial_server, SERIAL_TOKEN, Interest::READABLE)
             .unwrap();
 
-        poller
-            .registry()
-            .register(&mut tcp_server, TCP_TOKEN, Interest::READABLE)
-            .unwrap();
+        let mut tcp_server = match self.config.no_tcp {
+            true => {
+                let mut s = net::TcpListener::bind(std::net::SocketAddr::new(
+                    self.config.get_ip().parse().unwrap(),
+                    self.config.port,
+                ))
+                .expect("unable to bind TCP listener");
+                poller
+                    .registry()
+                    .register(&mut s, TCP_TOKEN, Interest::READABLE)
+                    .unwrap();
+                Some(s)
+            }
+            false => None,
+        };
+
+        let mut unix_server = match self.config.socket_path {
+            Some(ref path) => {
+                let mut s = net::UnixListener::bind(path).expect("unable to bind Unix listener");
+                poller
+                    .registry()
+                    .register(&mut s, UNIX_TOKEN, Interest::READABLE)
+                    .unwrap();
+                Some(s)
+            }
+            None => None,
+        };
 
         loop {
             poller.poll(&mut events, None).unwrap();
@@ -103,15 +118,26 @@ impl Server {
                             continue;
                         }
 
-                        for mut client in clients.iter() {
+                        for client in clients.iter_mut() {
                             client.write_all(buffer.as_slice()).unwrap();
                         }
                     }
-                    TCP_TOKEN => {
-                        let (client, addr) = tcp_server.accept().unwrap();
-                        println!("Accepted connection from: {}", addr);
-                        self.add_client(&poller, &mut clients, client);
-                    }
+                    TCP_TOKEN => match tcp_server {
+                        Some(ref mut s) => {
+                            let (client, addr) = s.accept().unwrap();
+                            println!("Accepted connection from: {}", addr);
+                            self.add_client(&poller, &mut clients, Stream::Tcp(client));
+                        }
+                        None => (),
+                    },
+                    UNIX_TOKEN => match unix_server {
+                        Some(ref mut s) => {
+                            let (client, addr) = s.accept().unwrap();
+                            println!("Accepted connection from: {:?}", addr);
+                            self.add_client(&poller, &mut clients, Stream::Unix(client));
+                        }
+                        None => (),
+                    },
                     _ => {
                         let client_fd = event.token().0;
                         if event.is_error() || event.is_read_closed() || event.is_write_closed() {

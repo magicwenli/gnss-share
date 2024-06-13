@@ -52,7 +52,7 @@ pub struct Cli {
     #[arg(short, long, default_value = "false")]
     pub no_tcp: bool,
 
-    /// Path to place the socket service
+    /// Path to place the unix socket service
     #[arg(short, long)]
     pub socket_path: Option<String>,
 }

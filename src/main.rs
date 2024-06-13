@@ -25,6 +25,7 @@
 mod cmdline_config;
 mod config;
 mod server;
+mod stream;
 
 use config::Config;
 use server::Server;
