@@ -23,7 +23,7 @@
  */
 
 use crate::config::Config;
-use clap::Parser;
+use clap::{ArgAction, Parser};
 
 #[derive(Parser)]
 #[command(name = "gnss-share")]
@@ -32,27 +32,28 @@ use clap::Parser;
 #[command(
     long_about = "This utility can boardcast GNSS data from a serial device to a TCP/Unix socket. And it can also receive GNSS data from TCP/Unix socket and send it back to a serial device."
 )]
+#[command(version = env!("CARGO_PKG_VERSION"))]
 pub struct Cli {
-    /// GPS device node
+    /// GNSS device node.
     pub device: String,
 
-    /// Baudrate to use for communication with GPS device
+    /// Baudrate to use for communication with GNSS device
     #[arg(short, long, default_value = "115200")]
     pub baudrate: u32,
+
+    /// Bind specific network interface. If not set, the service will listen on all interfaces.
+    #[arg(short, long)]
+    pub interface: Option<String>,
 
     /// Port to run TCP service on
     #[arg(short, long, default_value = "10110")]
     pub port: u16,
 
-    /// Bind specific network interface
-    #[arg(short, long)]
-    pub interface: Option<String>,
-
-    /// Don't share over TCP
-    #[arg(short, long, default_value = "false")]
+    /// Don't share over TCP.
+    #[arg(short, long, action=ArgAction::SetTrue)]
     pub no_tcp: bool,
 
-    /// Path to place the unix socket service
+    /// Path to place the unix socket service. If not set, the unix socket will not be started
     #[arg(short, long)]
     pub socket_path: Option<String>,
 }

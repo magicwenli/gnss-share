@@ -1,81 +1,56 @@
-use mio::{
-    event::Source,
-    net::{TcpStream, UnixStream},
-    Registry,
-};
+use core::fmt;
+use mio::{event::Source, net};
 use std::{
-    io::{Read, Write},
-    os::unix::io::{AsRawFd, RawFd},
+    io::{Read, Result, Write},
+    net::SocketAddr,
+    os::unix::io::AsRawFd,
 };
 
-pub enum Stream {
-    Tcp(TcpStream),
-    Unix(UnixStream),
+pub trait SocketPrint {
+    fn peer_addr(&self) -> Result<SocketAddr>;
+    fn local_addr(&self) -> Result<SocketAddr>;
 }
 
-impl AsRawFd for Stream {
-    fn as_raw_fd(&self) -> RawFd {
-        match self {
-            Stream::Tcp(tcp_stream) => tcp_stream.as_raw_fd(),
-            Stream::Unix(unix_stream) => unix_stream.as_raw_fd(),
-        }
-    }
-}
+pub trait Stream: AsRawFd + Source + Write + Read + SocketPrint {}
 
-impl Source for Stream {
-    fn register(
-        &mut self,
-        registry: &Registry,
-        token: mio::Token,
-        interests: mio::Interest,
-    ) -> std::io::Result<()> {
-        match self {
-            Stream::Tcp(tcp_stream) => tcp_stream.register(registry, token, interests),
-            Stream::Unix(unix_stream) => unix_stream.register(registry, token, interests),
-        }
-    }
+impl<T: AsRawFd + Source + Write + Read + SocketPrint> Stream for T {}
 
-    fn reregister(
-        &mut self,
-        registry: &Registry,
-        token: mio::Token,
-        interests: mio::Interest,
-    ) -> std::io::Result<()> {
-        match self {
-            Stream::Tcp(tcp_stream) => tcp_stream.reregister(registry, token, interests),
-            Stream::Unix(unix_stream) => unix_stream.reregister(registry, token, interests),
-        }
-    }
-
-    fn deregister(&mut self, registry: &Registry) -> std::io::Result<()> {
-        match self {
-            Stream::Tcp(tcp_stream) => tcp_stream.deregister(registry),
-            Stream::Unix(unix_stream) => unix_stream.deregister(registry),
-        }
+impl fmt::Display for Box<dyn Stream> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let peer_addr = match self.peer_addr() {
+            Ok(addr) => addr.to_string(),
+            Err(_) => return write!(f, "fd: {}", self.as_raw_fd()),
+        };
+        let local_addr = match self.local_addr() {
+            Ok(addr) => addr.to_string(),
+            Err(_) => return write!(f, "fd: {}", self.as_raw_fd()),
+        };
+        write!(
+            f,
+            "remote:{} local:{} fd:{}",
+            peer_addr,
+            local_addr,
+            self.as_raw_fd()
+        )
     }
 }
 
-impl Write for Stream {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        match self {
-            Stream::Tcp(tcp_stream) => tcp_stream.write(buf),
-            Stream::Unix(unix_stream) => unix_stream.write(buf),
-        }
+impl SocketPrint for net::TcpStream {
+    fn peer_addr(&self) -> Result<SocketAddr> {
+        self.peer_addr()
     }
 
-    fn flush(&mut self) -> std::io::Result<()> {
-        match self {
-            Stream::Tcp(tcp_stream) => tcp_stream.flush(),
-            Stream::Unix(unix_stream) => unix_stream.flush(),
-        }
+    fn local_addr(&self) -> Result<SocketAddr> {
+        self.local_addr()
     }
 }
 
-impl Read for Stream {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        match self {
-            Stream::Tcp(tcp_stream) => tcp_stream.read(buf),
-            Stream::Unix(unix_stream) => unix_stream.read(buf),
-        }
+impl SocketPrint for net::UnixStream {
+    fn peer_addr(&self) -> Result<SocketAddr> {
+        Ok("unix".parse().unwrap())
+    }
+
+    fn local_addr(&self) -> Result<SocketAddr> {
+        Ok("unix".parse().unwrap())
     }
 }

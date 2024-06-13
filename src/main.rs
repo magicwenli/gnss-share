@@ -22,19 +22,14 @@
  * Author: Zeeshan Ali <zeeshanak@gnome.org>
  */
 
-mod cmdline_config;
-mod config;
-mod server;
-mod stream;
-
-use config::Config;
-use server::Server;
+use gnss_share::cmdline_config;
+use gnss_share::config::Config;
+use gnss_share::server::Server;
 use signal_hook;
 use signal_hook::consts as signals;
 use std::io;
 use std::sync::mpsc;
 use std::thread;
-
 use std::rc::Rc;
 
 enum DoneReason {
@@ -56,6 +51,7 @@ fn notify(signals: &[i32], s: mpsc::Sender<DoneReason>) -> Result<(), io::Error>
 }
 
 fn main() {
+    env_logger::init();
     let config = cmdline_config::config_from_cmdline();
 
     let (sdone, rdone) = mpsc::channel();
@@ -67,13 +63,10 @@ fn main() {
         DoneReason::Signal(signals::SIGINT) => {
             println!("Interrupt from keyboard. Exitting..");
         }
-
         DoneReason::Signal(signals::SIGTERM) => {
             println!("Kill signal received. Exitting..");
         }
-
         DoneReason::Signal(_) => (),
-
         DoneReason::Success => {
             println!("Program completed normally.");
         }
