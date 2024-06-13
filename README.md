@@ -1,7 +1,7 @@
 # gnss-share
 
-![GitHub Release](https://img.shields.io/github/v/release/magicwenli/gnss-share)
-![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/magicwenli/gnss-share/release.yaml)
+[![GitHub Release](https://img.shields.io/github/v/release/magicwenli/gnss-share)](https://github.com/magicwenli/gnss-share/releases)
+[![GitHub Actions Workflow Status](https://github.com/magicwenli/gnss-share/actions/workflows/release.yaml/badge.svg)](https://github.com/magicwenli/gnss-share/actions/workflows/release.yaml)
 
 
 Utility to share your GPS device on local network.
@@ -15,7 +15,7 @@ I forked it to add support for additional features and to make it more generic.
 
 - support for tcp/unix clients send commands to gnss serial.
 - update some crates
-- use mio-server instead of serial
+- use mio/mio-serial instead of serial
 
 ## Command-line usage
 
@@ -25,13 +25,15 @@ Utility to share your GNSS device on local network.
 Usage: gnss-share [OPTIONS] <DEVICE>
 
 Arguments:
-  <DEVICE>  GPS device node
+  <DEVICE>  GNSS device node
 
 Options:
-  -b, --baudrate <BAUDRATE>        Baudrate to use for communication with GPS device [default: 115200]
-  -p, --port <PORT>                Port to run TCP service on [default: 10110]
-  -i, --interface <INTERFACE>      Bind specific network interface
-  -n, --no-tcp                     Don't share over TCP
-  -s, --socket-path <SOCKET_PATH>  Path to place the unix socket service
+  -b, --baudrate <BAUDRATE>        GNSS device baudrate [default: 115200]
+  -i, --interface <INTERFACE>      TCP service IP or net iface. Default is binding all iface
+  -p, --port <PORT>                TCP service port [default: 10110]
+  -n, --no-tcp                     Disable TCP service
+  -s, --socket-path <SOCKET_PATH>  Unix socket service path. Default is disable
+  -d, --daemonize                  Daemonize the process
   -h, --help                       Print help (see more with '--help')
+  -V, --version                    Print version
 ```

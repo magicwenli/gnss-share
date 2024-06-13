@@ -37,7 +37,7 @@ pub struct Cli {
     /// GNSS device node.
     pub device: String,
 
-    /// Baudrate to use for communication with GNSS device
+    /// GNSS device baudrate.
     #[arg(short, long, default_value = "115200")]
     pub baudrate: u32,
 
