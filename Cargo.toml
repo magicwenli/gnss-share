@@ -23,7 +23,8 @@ clap = { version = "4.5.7", features = ["derive"] }
 libc = "0.2.155"
 signal-hook = "0.3.17"
 mio = { version = "0.8.11", features = ["net"] }
-mio-serial = "5.0.5"
+mio-serial = { git = 'https://github.com/larsch/mio-serial.git', branch = 'zero-block' }
 log = "0.4.21"
 env_logger = "0.11.3"
+[target.'cfg(not(target_os = "windows"))'.dependencies]
 daemonize = "0.5.0"

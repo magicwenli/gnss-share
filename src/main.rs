@@ -22,6 +22,7 @@
  * Author: Zeeshan Ali <zeeshanak@gnome.org>
  */
 
+#[cfg(target_family = "unix")]
 use daemonize::Daemonize;
 use gnss_share::cmdline_config;
 use gnss_share::config::Config;
@@ -38,6 +39,7 @@ enum DoneReason {
     Success,
 }
 
+#[cfg(target_family = "unix")]
 /// Stolen directly from crate chan-signal.
 fn notify(signals: &[i32], s: mpsc::Sender<DoneReason>) -> Result<(), io::Error> {
     let mut signals = signal_hook::iterator::Signals::new(signals)?;
@@ -51,16 +53,24 @@ fn notify(signals: &[i32], s: mpsc::Sender<DoneReason>) -> Result<(), io::Error>
     Ok(())
 }
 
+#[cfg(not(target_family = "unix"))]
+// Dummy implementation for non-unix platforms.
+fn notify(_signals: &[i32], _s: mpsc::Sender<DoneReason>) -> Result<(), io::Error> {
+    Ok(())
+}
+
 fn main() {
     env_logger::init();
     let config = cmdline_config::config_from_cmdline();
 
     if config.daemonize {
-        let daemonize = Daemonize::new();
-        match daemonize.start() {
+        #[cfg(target_family = "unix")]
+        match Daemonize::new().start() {
             Ok(_) => println!("Daemonized!"),
             Err(e) => eprintln!("Error, {}", e),
         }
+        #[cfg(not(target_family = "unix"))]
+        eprintln!("Daemonize is not supported on this platform.");
     }
 
     let (sdone, rdone) = mpsc::channel();

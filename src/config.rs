@@ -22,9 +22,13 @@
  * Author: Zeeshan Ali <zeeshanak@gnome.org>
  */
 
+#[cfg(target_family = "unix")]
 use libc;
+#[cfg(target_family = "unix")]
 use std::ffi::{CStr, CString};
+#[cfg(target_family = "unix")]
 use std::mem;
+#[cfg(target_family = "unix")]
 use std::ptr;
 
 pub struct Config {
@@ -39,13 +43,16 @@ pub struct Config {
 
 impl Config {
     pub fn get_ip(&self) -> String {
+        #[cfg(target_family = "unix")]
         match self.net_iface {
             Some(ref iface) => unsafe { Config::get_ip_for_iface(iface) },
-
             None => "0.0.0.0".to_string(),
         }
+        #[cfg(not(target_family = "unix"))]
+        "0.0.0.0".to_string()
     }
 
+    #[cfg(target_family = "unix")]
     unsafe fn get_ip_for_iface(iface: &String) -> String {
         let mut addr_ptr = ptr::null_mut();
 

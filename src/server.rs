@@ -52,7 +52,10 @@ impl Server {
         clients: &mut Vec<Box<dyn Stream>>,
         mut client: Box<dyn Stream>,
     ) {
+        #[cfg(target_family = "unix")]
         let client_fd = client.as_raw_fd() as usize;
+        #[cfg(not(target_family = "unix"))]
+        let client_fd = client.as_raw_socket() as usize;
         poller
             .registry()
             .register(&mut client, Token(client_fd), Interest::READABLE)
@@ -62,9 +65,15 @@ impl Server {
     }
 
     fn remove_client(&self, poller: &Poll, clients: &mut Vec<Box<dyn Stream>>, client_fd: usize) {
+        #[cfg(target_family = "unix")]
         let client_index = clients
             .iter()
             .position(|c| c.as_raw_fd() as usize == client_fd)
+            .unwrap();
+        #[cfg(not(target_family = "unix"))]
+        let client_index = clients
+            .iter()
+            .position(|c| c.as_raw_socket() as usize == client_fd)
             .unwrap();
         let mut client = clients.swap_remove(client_index);
         println!("Disconnected client: {}", client);
@@ -114,6 +123,7 @@ impl Server {
             true => None,
         };
 
+        #[cfg(target_family = "unix")]
         let mut unix_server = match self.config.socket_path {
             Some(ref path) => {
                 let mut s = net::UnixListener::bind(path).expect("unable to bind Unix listener");
@@ -126,6 +136,9 @@ impl Server {
             }
             None => None,
         };
+
+        #[cfg(not(target_family = "unix"))]
+        let mut unix_server: Option<net::TcpListener> = None;
 
         loop {
             poller.poll(&mut events, None).unwrap();
@@ -165,9 +178,15 @@ impl Server {
                             self.remove_client(&poller, &mut clients, client_fd);
                         } else if event.is_readable() {
                             debug!("Client {} is readable", client_fd);
+                            #[cfg(target_family = "unix")]
                             let client = clients
                                 .iter_mut()
                                 .find(|c| c.as_raw_fd() as usize == client_fd)
+                                .unwrap();
+                            #[cfg(not(target_family = "unix"))]
+                            let client = clients
+                                .iter_mut()
+                                .find(|c| c.as_raw_socket() as usize == client_fd)
                                 .unwrap();
                             let mut buffer = vec![0; 1024];
                             let bytes_read = client.read(&mut buffer).unwrap();
