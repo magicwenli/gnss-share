@@ -143,22 +143,20 @@ impl Server {
                             client.write_all(&buffer[..bytes_read]).unwrap();
                         }
                     }
-                    TCP_TOKEN => match tcp_server {
-                        Some(ref mut s) => {
+                    TCP_TOKEN => {
+                        if let Some(ref mut s) = tcp_server {
                             let (client, addr) = s.accept().unwrap();
                             println!("Accepted connection from: {}", addr);
                             self.add_client(&poller, &mut clients, Box::new(client));
                         }
-                        None => (),
-                    },
-                    UNIX_TOKEN => match unix_server {
-                        Some(ref mut s) => {
+                    }
+                    UNIX_TOKEN => {
+                        if let Some(ref mut s) = unix_server {
                             let (client, addr) = s.accept().unwrap();
                             println!("Accepted connection from: {:?}", addr);
                             self.add_client(&poller, &mut clients, Box::new(client));
                         }
-                        None => (),
-                    },
+                    }
                     _ => {
                         let client_fd = event.token().0;
                         if event.is_error() || event.is_read_closed() || event.is_write_closed() {

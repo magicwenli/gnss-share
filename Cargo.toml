@@ -20,10 +20,10 @@ strip = true
 
 [dependencies]
 clap = { version = "4.5.7", features = ["derive"] }
+daemonize = "0.5.0"
+env_logger = "0.11.3"
 libc = "0.2.155"
-signal-hook = "0.3.17"
+log = "0.4.21"
 mio = { version = "0.8.11", features = ["net"] }
 mio-serial = "5.0.5"
-log = "0.4.21"
-env_logger = "0.11.3"
-daemonize = "0.5.0"
+signal-hook = "0.3.17"

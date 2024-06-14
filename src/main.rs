@@ -26,7 +26,6 @@ use daemonize::Daemonize;
 use gnss_share::cmdline_config;
 use gnss_share::config::Config;
 use gnss_share::server::Server;
-use signal_hook;
 use signal_hook::consts as signals;
 use std::io;
 use std::rc::Rc;

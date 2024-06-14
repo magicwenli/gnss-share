@@ -46,7 +46,7 @@ impl Config {
         }
     }
 
-    unsafe fn get_ip_for_iface(iface: &String) -> String {
+    unsafe fn get_ip_for_iface(iface: &str) -> String {
         let mut addr_ptr = ptr::null_mut();
 
         let ret = libc::getifaddrs(&mut addr_ptr);
@@ -58,9 +58,8 @@ impl Config {
             let addr = *addr_ptr;
             addr_ptr = addr.ifa_next;
 
-            let name;
-            match CStr::from_ptr(addr.ifa_name).to_str() {
-                Ok(n) => name = n,
+            let name = match CStr::from_ptr(addr.ifa_name).to_str() {
+                Ok(n) => n,
                 Err(e) => {
                     println!("{}", e);
 
@@ -68,15 +67,14 @@ impl Config {
                 }
             };
 
-            if name != iface.as_str() || addr.ifa_addr.is_null() {
+            if name != iface || addr.ifa_addr.is_null() {
                 continue;
             }
 
             let mut host = CString::from_vec_unchecked(vec![0u8; libc::NI_MAXHOST as usize]);
-            let size;
-            match i32::from((*addr.ifa_addr).sa_family) {
-                libc::AF_INET => size = mem::size_of::<libc::sockaddr_in>() as u32,
-                libc::AF_INET6 => size = mem::size_of::<libc::sockaddr_in6>() as u32,
+            let size = match i32::from((*addr.ifa_addr).sa_family) {
+                libc::AF_INET => mem::size_of::<libc::sockaddr_in>() as u32,
+                libc::AF_INET6 => mem::size_of::<libc::sockaddr_in6>() as u32,
                 _ => continue,
             };
             let host_ptr = host.into_raw() as *mut libc::c_char;
